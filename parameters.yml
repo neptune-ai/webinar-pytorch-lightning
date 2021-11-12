@@ -1,6 +1,6 @@
 batch_size: 64
 linear_1: 32
-linear_2: 20
+linear_2: 16
 lr: 0.005
 decay_factor: 0.995
-max_epochs: 1
+max_epochs: 15

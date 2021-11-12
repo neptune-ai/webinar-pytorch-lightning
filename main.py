@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
-from torchviz import make_dot
 
 
 # (neptune) define model with logging (self.log)
@@ -117,7 +116,7 @@ class LitModel(pl.LightningModule):
 
         if self.current_epoch % 5 == 0:
             for data in image_preds:
-                neptune_logger.experiment[f"val/preds/epoch_{self.current_epoch}"].log(
+                neptune_logger.experiment[f"training/val/preds/epoch_{self.current_epoch}"].log(
                     value=neptune.types.File.as_image(data["img"]),
                     name=data["name"],
                     description=data["description"],
@@ -135,7 +134,7 @@ class LitModel(pl.LightningModule):
             img = np.squeeze(x[j].cpu().detach().numpy())
             img[img < 0] = 0
             img = img / np.amax(img)
-            neptune_logger.experiment["test/misclassified_images"].log(
+            neptune_logger.experiment["training/test/misclassified_images"].log(
                 neptune.types.File.as_image(img),
                 description="y_pred={}, y_true={}".format(y_pred[j], y_true[j]),
             )
@@ -212,18 +211,6 @@ def log_confusion_matrix(lit_model, data_module):
     neptune_logger.experiment["confusion_matrix"].upload(neptune.types.File.as_image(fig))
 
 
-# (neptune) log model visualization
-def log_model_visualization(lit_model, data_module):
-    lit_model.freeze()
-    td = data_module.train_dataloader()
-    data = iter(td).next()
-    y = lit_model(data[0])
-    model_vis = make_dot(y.mean(), params=dict(lit_model.named_parameters()))
-    model_vis.format = "png"
-    model_vis.render("model_vis")
-    neptune_logger.experiment["model/visualization"] = neptune.types.File("model_vis.png")
-
-
 # load hyper-parameters
 with open("parameters.yml", "r") as stream:
     parameters = yaml.safe_load(stream)
@@ -283,6 +270,3 @@ trainer.test(model, datamodule=dm)
 
 # (neptune) log confusion matrix
 log_confusion_matrix(model, dm)
-
-# (neptune) log model visualization
-log_model_visualization(model, dm)

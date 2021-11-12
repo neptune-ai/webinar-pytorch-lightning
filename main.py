@@ -233,6 +233,7 @@ model_checkpoint = ModelCheckpoint(
 neptune_logger = NeptuneLogger(
     project="common/webinar-pytorch-lightning",
     tags=["training", "mnist"],
+    prefix="session",
 )
 
 # (neptune) initialize a trainer and pass neptune_logger

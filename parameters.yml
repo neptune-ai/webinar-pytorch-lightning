@@ -3,4 +3,4 @@ linear_1: 32
 linear_2: 20
 lr: 0.005
 decay_factor: 0.995
-max_epochs: 15
+max_epochs: 1

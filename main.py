@@ -18,10 +18,6 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 from torchviz import make_dot
 
-# load hyper-parameters
-with open("parameters.yml", "r") as stream:
-    parameters = yaml.safe_load(stream)
-
 
 # (neptune) define model with logging (self.log)
 class LitModel(pl.LightningModule):
@@ -84,21 +80,48 @@ class LitModel(pl.LightningModule):
         y_true = y.cpu().detach().numpy()
         y_pred = y_hat.argmax(axis=1).cpu().detach().numpy()
 
+        # example prediction
+        img = np.squeeze(x[0].detach().cpu())
+        img = img.mul_(0.3081).add_(0.1307).numpy()
+
+        output = y_hat[0].detach().cpu()
+        name = "pred: {}".format(y_pred[0])
+        desc_target = "target: {}".format(y_true[0])
+        desc_classes = "\n".join(["class {}: {}".format(j, pred)
+                                 for j, pred in enumerate(F.softmax(output, dim=0))])
+        description = "{} \n{}".format(desc_target, desc_classes)
+
         return {"loss": loss,
                 "y_true": y_true,
-                "y_pred": y_pred}
+                "y_pred": y_pred,
+                "predictions": {"img": img,
+                                "name": name,
+                                "description": description}
+                }
 
     def validation_epoch_end(self, outputs):
         loss = np.array([])
         y_true = np.array([])
         y_pred = np.array([])
+        image_preds = np.array([])
+
         for results_dict in outputs:
             loss = np.append(loss, results_dict["loss"])
             y_true = np.append(y_true, results_dict["y_true"])
             y_pred = np.append(y_pred, results_dict["y_pred"])
+            image_preds = np.append(image_preds, results_dict["predictions"])
+
         acc = accuracy_score(y_true, y_pred)
         self.log("val/loss", loss.mean())
         self.log("val/acc", acc)
+
+        if self.current_epoch % 5 == 0:
+            for data in image_preds:
+                neptune_logger.experiment[f"val/preds/epoch_{self.current_epoch}"].log(
+                    value=neptune.types.File.as_image(data["img"]),
+                    name=data["name"],
+                    description=data["description"],
+                )
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -192,16 +215,18 @@ def log_confusion_matrix(lit_model, data_module):
 # (neptune) log model visualization
 def log_model_visualization(lit_model, data_module):
     lit_model.freeze()
-    test_data = data_module.test_dataloader()
-
-    y = lit_model(test_data[0])
-
+    td = data_module.train_dataloader()
+    data = iter(td).next()
+    y = lit_model(data[0])
     model_vis = make_dot(y.mean(), params=dict(lit_model.named_parameters()))
     model_vis.format = "png"
     model_vis.render("model_vis")
-
     neptune_logger.experiment["model/visualization"] = neptune.types.File("model_vis.png")
 
+
+# load hyper-parameters
+with open("parameters.yml", "r") as stream:
+    parameters = yaml.safe_load(stream)
 
 # create learning rate logger
 lr_logger = LearningRateMonitor(logging_interval="epoch")

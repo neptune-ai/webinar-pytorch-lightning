@@ -19,6 +19,7 @@ from torchvision.datasets import MNIST
 
 ROOT_NAMESPACE = "session"
 
+
 # (neptune) define model with logging (self.log)
 class LitModel(pl.LightningModule):
     def __init__(self, linear_1, linear_2, learning_rate, decay_factor):

@@ -17,6 +17,7 @@ from torch.utils.data import random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
 
+ROOT_NAMESPACE = "session"
 
 # (neptune) define model with logging (self.log)
 class LitModel(pl.LightningModule):
@@ -116,7 +117,7 @@ class LitModel(pl.LightningModule):
 
         if self.current_epoch % 5 == 0:
             for data in image_preds:
-                neptune_logger.experiment[f"training/val/preds/epoch_{self.current_epoch}"].log(
+                neptune_logger.experiment[f"{ROOT_NAMESPACE}/val/preds/epoch_{self.current_epoch}"].log(
                     value=neptune.types.File.as_image(data["img"]),
                     name=data["name"],
                     description=data["description"],
@@ -134,7 +135,7 @@ class LitModel(pl.LightningModule):
             img = np.squeeze(x[j].cpu().detach().numpy())
             img[img < 0] = 0
             img = img / np.amax(img)
-            neptune_logger.experiment["training/test/misclassified_images"].log(
+            neptune_logger.experiment[f"{ROOT_NAMESPACE}/test/misclassified_images"].log(
                 neptune.types.File.as_image(img),
                 description="y_pred={}, y_true={}".format(y_pred[j], y_true[j]),
             )
@@ -208,7 +209,7 @@ def log_confusion_matrix(lit_model, data_module):
 
     fig, ax = plt.subplots(figsize=(16, 12))
     plot_confusion_matrix(y_true, y_pred, ax=ax)
-    neptune_logger.experiment["confusion_matrix"].upload(neptune.types.File.as_image(fig))
+    neptune_logger.experiment[f"{ROOT_NAMESPACE}/confusion_matrix"].upload(neptune.types.File.as_image(fig))
 
 
 # load hyper-parameters
@@ -233,7 +234,7 @@ model_checkpoint = ModelCheckpoint(
 neptune_logger = NeptuneLogger(
     project="common/webinar-pytorch-lightning",
     tags=["training", "mnist"],
-    prefix="session",
+    prefix=ROOT_NAMESPACE,
 )
 
 # (neptune) initialize a trainer and pass neptune_logger
